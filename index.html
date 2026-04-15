@@ -2,46 +2,38 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RTC Project - Flash Effect AR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RTC Project - Fixed AR</title>
     
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; }
+        /* 画面全体をAR領域にするための必須設定 */
+        body { margin: 0; overflow: hidden; position: fixed; width: 100%; height: 100%; }
+        
+        /* 1. スキャン画面をフルスクリーンにする */
+        .mindar-ui-overlay { z-index: 500; }
+        video { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover !important; }
 
-        /* --- 演出用CSS: 画面全体を覆う白いレイヤー --- */
+        /* 2. 点滅演出レイヤー */
         #flash-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            opacity: 0; /* 通常は透明 */
-            z-index: 9999; /* 一番手前に表示 */
-            pointer-events: none; /* タッチイベントを透過させる */
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: white; opacity: 0; z-index: 9999; pointer-events: none;
         }
+        .run-flash { animation: flashAnimation 0.5s ease-out; }
+        @keyframes flashAnimation { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* 点滅アニメーションのクラス定義 */
-        .run-flash {
-            animation: flashAnimation 0.5s ease-out; /* 0.5秒で実行 */
-        }
-
-        @keyframes flashAnimation {
-            0% { opacity: 0; }
-            10% { opacity: 1; } /* 一瞬で不透明（真っ白）に */
-            100% { opacity: 0; } /* ゆっくり透明に戻る */
-        }
-
-        /* --- 既存のUI（参考） --- */
+        /* 3. UI：初期は非表示（display: none） */
         #ui-container {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; display: flex; gap: 10px;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; display: none; /* ← ここで最初は隠す */
         }
-        button { padding: 10px 20px; font-size: 16px; pointer-events: auto; }
+        button { 
+            padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none;
+            background: rgba(255,255,255,0.8); color: #333; font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -49,12 +41,12 @@
     <div id="flash-overlay"></div>
 
     <div id="ui-container">
-        <button id="capture-btn">撮影モード</button>
+        <button id="capture-btn">📷 撮影モード</button>
     </div>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; filterMinCF: 0.0001; filterBeta: 0.1;" 
-        embedded color-space="sRGB" 
+        mindar-image="imageTargetSrc: ./targets.mind; filterMinCF: 0.0001; filterBeta: 0.1; uiLoading: no; uiError: no; uiScanning: no;" 
+        color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
@@ -66,67 +58,50 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity id="nicole-target" mindar-image-target="targetIndex: 0">
-            
             <a-image 
                 id="nicole-asset"
                 src="#nicole-img" 
-                width="5.0" 
-                height="7.0" 
+                width="6.0" 
+                height="8.0" 
                 position="0 0 0"
                 look-at="[camera]"
                 visible="false">
             </a-image>
-
         </a-entity>
     </a-scene>
 
     <script>
-        // --- 演出ロジック ---
-
         const targetEl = document.querySelector('#nicole-target');
         const flashOverlay = document.querySelector('#flash-overlay');
         const nicoleAsset = document.querySelector('#nicole-asset');
+        const uiContainer = document.querySelector('#ui-container');
 
-        // ターゲットが見つかった（スキャン成功）時のイベント
+        // ターゲット検知時
         targetEl.addEventListener("mindar-image-target-found", (event) => {
-            console.log("ターゲット検知：点滅演出を開始します");
-
-            // 1. すでにアニメーションクラスがついていたら削除（連続検知対策）
+            // 点滅演出
             flashOverlay.classList.remove('run-flash');
-            
-            // reflow（アニメーションを再トリガーさせるためのハック）
             void flashOverlay.offsetWidth; 
-
-            // 2. CSSアニメーションクラスを付与して点滅させる
             flashOverlay.classList.add('run-flash');
 
-            // 3. タイミングを合わせて画像を表示する
-            // フラッシュが一番明るくなる瞬間（約0.1秒後）に表示を切り替える
+            // 0.1秒後にニコルを表示し、UI（ボタン）も出す
             setTimeout(() => {
                 nicoleAsset.setAttribute('visible', 'true');
-            }, 100); 
-
-            // （オプション）アニメーション終了後にクラスを削除
-            setTimeout(() => {
-                flashOverlay.classList.remove('run-flash');
-            }, 500);
+                uiContainer.style.display = 'flex'; // ボタンを表示
+            }, 100);
         });
 
-        // ターゲットを見失った時のイベント
+        // ターゲットを見失った時
         targetEl.addEventListener("mindar-image-target-lost", (event) => {
-            console.log("ターゲット紛失：画像を非表示にします");
-            // 次回検知時にまた演出を見せるため、非表示に戻す
             nicoleAsset.setAttribute('visible', 'false');
+            uiContainer.style.display = 'none'; // ボタンを隠す
         });
 
-        // --- UI制御（参考：引き継ぎサマリーより） ---
-        // 撮影ボタンを押した時にUIを隠す処理などはここに記述
-        document.getElementById('capture-btn').addEventListener('click', () => {
-            document.getElementById('ui-container').style.display = 'none';
-            // 撮影処理（外部ライブラリ等）をここに
-            // 撮影後に元に戻す
-            // setTimeout(() => { document.getElementById('ui-container').style.display = 'flex'; }, 2000);
-        });
+        // 撮影ボタン（サマリーにあった window オブジェクト登録）
+        window.captureMode = function() {
+            uiContainer.style.display = 'none';
+            // ここに撮影用ロジック
+        };
+        document.getElementById('capture-btn').onclick = window.captureMode;
     </script>
 </body>
 </html>
