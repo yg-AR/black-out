@@ -94,38 +94,49 @@
 
     <script>
         const sceneEl = document.querySelector('a-scene');
-        const startScreen = document.querySelector('#start-screen');
-        const startBtn = document.querySelector('#start-btn');
-        const targetEl = document.querySelector('#nicole-target');
-        const nicoleAsset = document.querySelector('#nicole-asset');
-        const uiContainer = document.querySelector('#ui-container');
-        const flashOverlay = document.querySelector('#flash-overlay');
+const startScreen = document.querySelector('#start-screen');
+const startBtn = document.querySelector('#start-btn');
 
-        // 1. 開始ボタンが押された時の処理
-        startBtn.addEventListener('click', () => {
-            // シーンを開始
-            sceneEl.systems['mindar-image-system'].start();
-            // 起動画面を消す
-            startScreen.style.display = 'none';
-        });
+// --- 追加: ターゲット認識時に必要な要素 ---
+const targetEl = document.querySelector('#nicole-target');
+const nicoleAsset = document.querySelector('#nicole-asset');
+const uiContainer = document.querySelector('#ui-container');
+const flashOverlay = document.querySelector('#flash-overlay');
 
-        // 2. ターゲット検知演出
-        targetEl.addEventListener("mindar-image-target-found", () => {
-            flashOverlay.classList.remove('run-flash');
-            void flashOverlay.offsetWidth; 
-            flashOverlay.classList.add('run-flash');
+// 1. シーンが「完全にロード」されるのを待つ
+sceneEl.addEventListener("loaded", () => {
+    console.log("A-Frame Scene Loaded");
 
-            setTimeout(() => {
-                nicoleAsset.setAttribute('visible', 'true');
-                uiContainer.style.display = 'flex';
-            }, 100);
-        });
+    // 2. 開始ボタンが押された時の処理
+    startBtn.addEventListener('click', () => {
+        // A-Frameのシステム経由でMind-ARを強制起動
+        const arSystem = sceneEl.systems['mindar-image-system'];
+        
+        if (arSystem) {
+            arSystem.start(); // ここでスキャン開始
+            console.log("Mind-AR System Started");
+        }
 
-        // 3. ターゲット紛失
-        targetEl.addEventListener("mindar-image-target-lost", () => {
-            nicoleAsset.setAttribute('visible', 'false');
-            uiContainer.style.display = 'none';
-        });
+        startScreen.style.display = 'none';
+    });
+});
+
+// --- ターゲット検知演出（ここはそのまま） ---
+targetEl.addEventListener("mindar-image-target-found", () => {
+    flashOverlay.classList.remove('run-flash');
+    void flashOverlay.offsetWidth; 
+    flashOverlay.classList.add('run-flash');
+
+    setTimeout(() => {
+        nicoleAsset.setAttribute('visible', 'true');
+        uiContainer.style.display = 'flex';
+    }, 100);
+});
+
+targetEl.addEventListener("mindar-image-target-lost", () => {
+    nicoleAsset.setAttribute('visible', 'false');
+    uiContainer.style.display = 'none';
+});
     </script>
 </body>
 </html>
