@@ -3,21 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>RTC Project - Fixed AR</title>
+    <title>RTC Project - Final Fix</title>
     
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
 
     <style>
-        /* 画面全体をAR領域にするための必須設定 */
-        body { margin: 0; overflow: hidden; position: fixed; width: 100%; height: 100%; }
+        /* 1. 画面の寄り・バグを力技で直すCSS */
+        body { margin: 0; overflow: hidden; position: fixed; width: 100vw; height: 100vh; background: #000; }
         
-        /* 1. スキャン画面をフルスクリーンにする */
-        .mindar-ui-overlay { z-index: 500; }
-        video { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover !important; }
+        /* Mind-ARのビデオが勝手に左に寄らないように固定 */
+        video, canvas {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+        }
 
-        /* 2. 点滅演出レイヤー */
+        /* 2. ブラウザが出してくる「再生ボタン」類を非表示 */
+        .mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading {
+            display: none !important;
+        }
+
+        /* 3. 最初の「開始ボタン」：これが一番重要 */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a1a; color: white; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #start-btn {
+            padding: 20px 40px; font-size: 20px; background: #c0a060; /* 和風な金 */
+            color: white; border: none; border-radius: 5px; cursor: pointer;
+        }
+
+        /* 4. 点滅演出 */
         #flash-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: white; opacity: 0; z-index: 9999; pointer-events: none;
@@ -25,28 +47,29 @@
         .run-flash { animation: flashAnimation 0.5s ease-out; }
         @keyframes flashAnimation { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* 3. UI：初期は非表示（display: none） */
+        /* 5. 撮影用UI */
         #ui-container {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 1000; display: none; /* ← ここで最初は隠す */
-        }
-        button { 
-            padding: 15px 30px; font-size: 18px; border-radius: 30px; border: none;
-            background: rgba(255,255,255,0.8); color: #333; font-weight: bold;
+            z-index: 1000; display: none;
         }
     </style>
 </head>
 <body>
 
+    <div id="start-screen">
+        <h1 style="margin-bottom:20px;">RTC AR System</h1>
+        <button id="start-btn">AR体験を開始する</button>
+    </div>
+
     <div id="flash-overlay"></div>
 
     <div id="ui-container">
-        <button id="capture-btn">📷 撮影モード</button>
+        <button id="capture-btn" style="padding:15px 30px; border-radius:30px; border:none; background:white;">📷 撮影モード</button>
     </div>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; filterMinCF: 0.0001; filterBeta: 0.1; uiLoading: no; uiError: no; uiScanning: no;" 
-        color-space="sRGB" 
+        mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiLoading: no; uiError: no; uiScanning: no; filterMinCF: 0.0001; filterBeta: 0.1;" 
+        embedded color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
@@ -63,7 +86,6 @@
                 src="#nicole-img" 
                 width="6.0" 
                 height="8.0" 
-                position="0 0 0"
                 look-at="[camera]"
                 visible="false">
             </a-image>
@@ -71,37 +93,39 @@
     </a-scene>
 
     <script>
+        const sceneEl = document.querySelector('a-scene');
+        const startScreen = document.querySelector('#start-screen');
+        const startBtn = document.querySelector('#start-btn');
         const targetEl = document.querySelector('#nicole-target');
-        const flashOverlay = document.querySelector('#flash-overlay');
         const nicoleAsset = document.querySelector('#nicole-asset');
         const uiContainer = document.querySelector('#ui-container');
+        const flashOverlay = document.querySelector('#flash-overlay');
 
-        // ターゲット検知時
-        targetEl.addEventListener("mindar-image-target-found", (event) => {
-            // 点滅演出
+        // 1. 開始ボタンが押された時の処理
+        startBtn.addEventListener('click', () => {
+            // シーンを開始
+            sceneEl.systems['mindar-image-system'].start();
+            // 起動画面を消す
+            startScreen.style.display = 'none';
+        });
+
+        // 2. ターゲット検知演出
+        targetEl.addEventListener("mindar-image-target-found", () => {
             flashOverlay.classList.remove('run-flash');
             void flashOverlay.offsetWidth; 
             flashOverlay.classList.add('run-flash');
 
-            // 0.1秒後にニコルを表示し、UI（ボタン）も出す
             setTimeout(() => {
                 nicoleAsset.setAttribute('visible', 'true');
-                uiContainer.style.display = 'flex'; // ボタンを表示
+                uiContainer.style.display = 'flex';
             }, 100);
         });
 
-        // ターゲットを見失った時
-        targetEl.addEventListener("mindar-image-target-lost", (event) => {
+        // 3. ターゲット紛失
+        targetEl.addEventListener("mindar-image-target-lost", () => {
             nicoleAsset.setAttribute('visible', 'false');
-            uiContainer.style.display = 'none'; // ボタンを隠す
-        });
-
-        // 撮影ボタン（サマリーにあった window オブジェクト登録）
-        window.captureMode = function() {
             uiContainer.style.display = 'none';
-            // ここに撮影用ロジック
-        };
-        document.getElementById('capture-btn').onclick = window.captureMode;
+        });
     </script>
 </body>
 </html>
