@@ -3,41 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2.5D AR Nicole - Flash</title>
+    <title>2.5D AR Nicole - Double Flash</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
         body { margin: 0; overflow: hidden; position: fixed; width: 100%; height: 100%; background: #000; }
         
-        /* 開始ボタン（デザイン継承） */
+        /* 1. 開始ボタン：z-indexを一番大きくして確実にクリック可能にする */
         #start-button {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            z-index: 9999; padding: 18px 36px; background: linear-gradient(135deg, #28a745, #218838);
+            z-index: 10000; /* 最前面 */
+            padding: 18px 36px; background: linear-gradient(135deg, #28a745, #218838);
             color: white; border: none; border-radius: 50px; font-family: sans-serif;
             font-size: 18px; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
             cursor: pointer;
         }
 
-        /* --- 点滅演出用のレイヤー --- */
+        /* 2. 点滅演出用のレイヤー */
         #flash-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: white; opacity: 0; z-index: 9998; /* ボタンのすぐ下 */
-            pointer-events: none; /* タップを邪魔しない */
+            background-color: white; opacity: 0; 
+            z-index: 9998; /* ボタンよりは下、ARシーンよりは上 */
+            pointer-events: none; /* これが重要：下のクリックを邪魔しない */
         }
 
-       /* 点滅アニメーション設定（2回点滅） */
-.run-flash {
-    /* 0.8秒かけてアニメーションを実行 */
-    animation: flashAnimation 0.8s ease-out;
-}
-
-@keyframes flashAnimation {
-    0%   { opacity: 0; }
-    20%  { opacity: 1; }  /* 1回目の光 */
-    40%  { opacity: 0; }  /* 一旦消える */
-    60%  { opacity: 1; }  /* 2回目の光 */
-    100% { opacity: 0; }  /* 最後に消える */
-}
+        /* 3. 点滅アニメーション：2回光る設定 */
+        .run-flash {
+            animation: flashAnimation 0.8s ease-out;
+        }
+        @keyframes flashAnimation {
+            0%   { opacity: 0; }
+            15%  { opacity: 1; }  /* 1回目：パッ */
+            30%  { opacity: 0; }
+            45%  { opacity: 1; }  /* 2回目：パッ */
+            100% { opacity: 0; }  /* 消える */
+        }
     </style>
 </head>
 <body>
@@ -72,33 +72,33 @@
         const targetEl = document.querySelector('#t');
 
         function startAR() {
+            console.log("Button clicked!"); // 動作確認用
             const sceneEl = document.querySelector('a-scene');
             const arSystem = sceneEl.systems["mindar-image-system"];
-            startBtn.style.display = "none";
-            arSystem.start(); 
+            
+            if (arSystem) {
+                startBtn.style.display = "none";
+                arSystem.start(); 
+            } else {
+                console.error("AR System not found");
+            }
         }
 
-        // 認識した時：点滅させてから画像を表示
-        // ※Mind-AR A-Frame版の正式なイベント名「targetFound」を使用
+        // 2回点滅後に画像を表示
         targetEl.addEventListener("targetFound", () => {
-            // 点滅実行
-            flashOverlay.classList.remove('run-flash');
-            void flashOverlay.offsetWidth; // アニメーション再発火の呪文
-            flashOverlay.classList.add('run-flash');
-
-          // 認識した時：2回点滅させてから画像を表示
-        targetEl.addEventListener("targetFound", () => {
+            console.log("Target Found!");
+            
+            // アニメーションをリセットして実行
             flashOverlay.classList.remove('run-flash');
             void flashOverlay.offsetWidth; 
             flashOverlay.classList.add('run-flash');
 
-            // 0.5秒後（2回目のフラッシュが光ったあたり）に画像を表示
+            // 0.45秒後（2回目のフラッシュが光った直後）に画像を表示
             setTimeout(() => {
                 arImageObj.setAttribute("visible", "true");
-            }, 500); 
+            }, 450); 
         });
 
-        // 見失った時
         targetEl.addEventListener("targetLost", () => {
             arImageObj.setAttribute("visible", "false");
         });
