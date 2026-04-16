@@ -25,15 +25,19 @@
             pointer-events: none; /* タップを邪魔しない */
         }
 
-        /* 点滅アニメーション設定 */
-        .run-flash {
-            animation: flashAnimation 0.5s ease-out;
-        }
-        @keyframes flashAnimation {
-            0% { opacity: 0; }
-            10% { opacity: 1; } /* 一瞬で白く */
-            100% { opacity: 0; } /* 消えていく */
-        }
+       /* 点滅アニメーション設定（2回点滅） */
+.run-flash {
+    /* 0.8秒かけてアニメーションを実行 */
+    animation: flashAnimation 0.8s ease-out;
+}
+
+@keyframes flashAnimation {
+    0%   { opacity: 0; }
+    20%  { opacity: 1; }  /* 1回目の光 */
+    40%  { opacity: 0; }  /* 一旦消える */
+    60%  { opacity: 1; }  /* 2回目の光 */
+    100% { opacity: 0; }  /* 最後に消える */
+}
     </style>
 </head>
 <body>
@@ -82,10 +86,16 @@
             void flashOverlay.offsetWidth; // アニメーション再発火の呪文
             flashOverlay.classList.add('run-flash');
 
-            // 0.1秒後に画像を表示（フラッシュのピークに合わせる）
+          // 認識した時：2回点滅させてから画像を表示
+        targetEl.addEventListener("targetFound", () => {
+            flashOverlay.classList.remove('run-flash');
+            void flashOverlay.offsetWidth; 
+            flashOverlay.classList.add('run-flash');
+
+            // 0.5秒後（2回目のフラッシュが光ったあたり）に画像を表示
             setTimeout(() => {
                 arImageObj.setAttribute("visible", "true");
-            }, 100);
+            }, 500); 
         });
 
         // 見失った時
